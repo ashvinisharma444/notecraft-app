@@ -1,0 +1,252 @@
+'use client';
+import { useEffect, useCallback, useRef } from 'react';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Placeholder from '@tiptap/extension-placeholder';
+import Image from '@tiptap/extension-image';
+import Link from '@tiptap/extension-link';
+import Underline from '@tiptap/extension-underline';
+import TextStyle from '@tiptap/extension-text-style';
+import Color from '@tiptap/extension-color';
+import { Table } from '@tiptap/extension-table';
+import { TableRow } from '@tiptap/extension-table-row';
+import { TableCell } from '@tiptap/extension-table-cell';
+import { TableHeader } from '@tiptap/extension-table-header';
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import { createLowlight } from 'lowlight';
+import javascript from 'highlight.js/lib/languages/javascript';
+import typescript from 'highlight.js/lib/languages/typescript';
+import python from 'highlight.js/lib/languages/python';
+import sql from 'highlight.js/lib/languages/sql';
+import bash from 'highlight.js/lib/languages/bash';
+import {
+  Bold, Italic, UnderlineIcon, Strikethrough,
+  Heading1, Heading2, Heading3,
+  Code, CodeSquare, List, ListOrdered,
+  Table as TableIcon, Image as ImageIcon, Link as LinkIcon,
+  Minus, Undo2, Redo2, AlignLeft
+} from 'lucide-react';
+
+const lowlight = createLowlight();
+lowlight.register('javascript', javascript);
+lowlight.register('typescript', typescript);
+lowlight.register('python', python);
+lowlight.register('sql', sql);
+lowlight.register('bash', bash);
+lowlight.register('js', javascript);
+lowlight.register('ts', typescript);
+
+interface TipTapEditorProps {
+  content: object;
+  onChange: (content: object) => void;
+  pageId: number;
+}
+
+interface ToolbarButtonProps {
+  onClick: () => void;
+  active?: boolean;
+  title: string;
+  children: React.ReactNode;
+  disabled?: boolean;
+}
+
+function ToolbarButton({ onClick, active, title, children, disabled }: ToolbarButtonProps) {
+  return (
+    <button
+      type="button"
+      onMouseDown={e => { e.preventDefault(); onClick(); }}
+      title={title}
+      disabled={disabled}
+      className="w-8 h-8 flex items-center justify-center rounded transition-all disabled:opacity-40 flex-shrink-0"
+      style={{
+        background: active ? 'var(--primary)' : 'transparent',
+        color: active ? 'white' : 'var(--foreground)',
+      }}
+      onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'var(--border)'; }}
+      onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Divider() {
+  return <div className="w-px h-6 mx-1 flex-shrink-0" style={{ background: 'var(--border)' }} />;
+}
+
+export function TipTapEditor({ content, onChange, pageId }: TipTapEditorProps) {
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({ codeBlock: false }),
+      Placeholder.configure({ placeholder: 'Start writing… Use the toolbar above for formatting.' }),
+      Image.configure({ inline: false, allowBase64: true }),
+      Link.configure({ openOnClick: false, HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' } }),
+      Underline,
+      TextStyle,
+      Color,
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableHeader,
+      TableCell,
+      CodeBlockLowlight.configure({ lowlight, defaultLanguage: 'javascript' }),
+    ],
+    content: Object.keys(content).length ? content : undefined,
+    editorProps: {
+      attributes: { class: 'prose-editor' },
+    },
+    onUpdate: ({ editor }) => {
+      const json = editor.getJSON();
+      onChange(json);
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
+        fetch(`/api/pages/${pageId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: json }),
+        }).catch(console.error);
+      }, 1200);
+    },
+  });
+
+  useEffect(() => {
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  }, []);
+
+  const insertImage = useCallback(() => {
+    if (!editor) return;
+    const url = window.prompt('Enter image URL:');
+    if (url?.trim()) editor.chain().focus().setImage({ src: url.trim() }).run();
+  }, [editor]);
+
+  const uploadImage = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!editor || !e.target.files?.[0]) return;
+    const file = e.target.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('pageId', String(pageId));
+    try {
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      if (res.ok) {
+        const { url } = await res.json();
+        editor.chain().focus().setImage({ src: url }).run();
+      }
+    } catch { console.error('Upload failed'); }
+    e.target.value = '';
+  }, [editor, pageId]);
+
+  const setLink = useCallback(() => {
+    if (!editor) return;
+    const prev = editor.getAttributes('link').href as string | undefined;
+    const url = window.prompt('Enter URL:', prev || 'https://');
+    if (url === null) return;
+    if (url === '') { editor.chain().focus().extendMarkRange('link').unsetLink().run(); return; }
+    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+  }, [editor]);
+
+  if (!editor) return null;
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Toolbar */}
+      <div className="flex items-center flex-wrap gap-0.5 px-4 py-2 border-b sticky top-0 z-10"
+        style={{ background: 'var(--background)', borderColor: 'var(--border)' }}>
+        {/* History */}
+        <ToolbarButton onClick={() => editor.chain().focus().undo().run()} title="Undo" disabled={!editor.can().undo()}>
+          <Undo2 className="w-4 h-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().redo().run()} title="Redo" disabled={!editor.can().redo()}>
+          <Redo2 className="w-4 h-4" />
+        </ToolbarButton>
+
+        <Divider />
+
+        {/* Text formatting */}
+        <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')} title="Bold">
+          <Bold className="w-4 h-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')} title="Italic">
+          <Italic className="w-4 h-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive('underline')} title="Underline">
+          <UnderlineIcon className="w-4 h-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive('strike')} title="Strikethrough">
+          <Strikethrough className="w-4 h-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleCode().run()} active={editor.isActive('code')} title="Inline Code">
+          <Code className="w-4 h-4" />
+        </ToolbarButton>
+
+        <Divider />
+
+        {/* Headings */}
+        <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} active={editor.isActive('heading', { level: 1 })} title="Heading 1">
+          <Heading1 className="w-4 h-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive('heading', { level: 2 })} title="Heading 2">
+          <Heading2 className="w-4 h-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} active={editor.isActive('heading', { level: 3 })} title="Heading 3">
+          <Heading3 className="w-4 h-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().setParagraph().run()} active={editor.isActive('paragraph')} title="Paragraph">
+          <AlignLeft className="w-4 h-4" />
+        </ToolbarButton>
+
+        <Divider />
+
+        {/* Lists */}
+        <ToolbarButton onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')} title="Bullet List">
+          <List className="w-4 h-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')} title="Numbered List">
+          <ListOrdered className="w-4 h-4" />
+        </ToolbarButton>
+
+        <Divider />
+
+        {/* Block elements */}
+        <ToolbarButton onClick={() => editor.chain().focus().toggleCodeBlock().run()} active={editor.isActive('codeBlock')} title="Code Block">
+          <CodeSquare className="w-4 h-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} title="Insert Table">
+          <TableIcon className="w-4 h-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Horizontal Divider">
+          <Minus className="w-4 h-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={setLink} active={editor.isActive('link')} title="Insert Link">
+          <LinkIcon className="w-4 h-4" />
+        </ToolbarButton>
+
+        <Divider />
+
+        {/* Image */}
+        <ToolbarButton onClick={insertImage} title="Insert Image (URL)">
+          <ImageIcon className="w-4 h-4" />
+        </ToolbarButton>
+        <label className="w-8 h-8 flex items-center justify-center rounded cursor-pointer transition-colors flex-shrink-0"
+          title="Upload Image"
+          style={{ color: 'var(--foreground)' }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'var(--border)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
+          </svg>
+          <input type="file" accept="image/*" className="hidden" onChange={uploadImage} />
+        </label>
+      </div>
+
+      {/* Editor */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-4xl mx-auto px-6 md:px-12 py-8">
+          <EditorContent editor={editor} className="min-h-[60vh]" />
+        </div>
+      </div>
+    </div>
+  );
+}
