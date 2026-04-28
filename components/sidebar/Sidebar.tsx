@@ -8,11 +8,14 @@ import {
   Edit3, LogOut, BookOpen, FileText, X, Check, Menu
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 
 interface Page { id: number; title: string; project_id: number; }
 interface Project { id: number; name: string; emoji: string; pages?: Page[]; }
 
-const EMOJIS = ['📁','📝','🚀','💡','📊','🎯','🔥','⚡','🌟','📌','🔖','💎'];
+type PendingDelete =
+  | { kind: 'project'; id: number; name: string }
+  | { kind: 'page'; projectId: number; pageId: number; title: string };
 
 export function Sidebar() {
   const router = useRouter();
@@ -24,6 +27,7 @@ export function Sidebar() {
   const [editName, setEditName] = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
 
   const fetchProjects = useCallback(async () => {
     const res = await fetch('/api/projects');
@@ -75,12 +79,17 @@ export function Sidebar() {
     setEditingProject(null);
   };
 
-  const deleteProject = async (id: number) => {
-    if (!confirm('Delete this project and all its pages?')) return;
+  const confirmDeleteProject = (id: number, name: string) => {
+    setPendingDelete({ kind: 'project', id, name });
+  };
+
+  const doDeleteProject = async () => {
+    if (!pendingDelete || pendingDelete.kind !== 'project') return;
+    const { id } = pendingDelete;
+    setPendingDelete(null);
     await fetch(`/api/projects/${id}`, { method: 'DELETE' });
     setProjects(prev => prev.filter(p => p.id !== id));
-    const cur = `/dashboard/${id}`;
-    if (pathname.startsWith(cur)) router.push('/dashboard');
+    if (pathname.startsWith(`/dashboard/${id}`)) router.push('/dashboard');
   };
 
   const createPage = async (projectId: number) => {
@@ -97,7 +106,14 @@ export function Sidebar() {
     }
   };
 
-  const deletePage = async (projectId: number, pageId: number) => {
+  const confirmDeletePage = (projectId: number, pageId: number, title: string) => {
+    setPendingDelete({ kind: 'page', projectId, pageId, title });
+  };
+
+  const doDeletePage = async () => {
+    if (!pendingDelete || pendingDelete.kind !== 'page') return;
+    const { projectId, pageId } = pendingDelete;
+    setPendingDelete(null);
     await fetch(`/api/pages/${pageId}`, { method: 'DELETE' });
     setPagesByProject(prev => ({
       ...prev, [projectId]: (prev[projectId] || []).filter(p => p.id !== pageId),
@@ -123,9 +139,7 @@ export function Sidebar() {
 
       {/* Projects header */}
       <div className="flex items-center justify-between px-4 py-3">
-        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>
-          Projects
-        </span>
+        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>Projects</span>
         <button onClick={createProject}
           className="w-6 h-6 flex items-center justify-center rounded-md transition-colors hover:bg-white/10 text-indigo-400"
           title="New project">
@@ -176,7 +190,7 @@ export function Sidebar() {
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-slate-400 hover:text-white" title="Rename">
                       <Edit3 className="w-3.5 h-3.5" />
                     </button>
-                    <button onClick={e => { e.stopPropagation(); deleteProject(project.id); }}
+                    <button onClick={e => { e.stopPropagation(); confirmDeleteProject(project.id, project.name); }}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-red-500/20 text-slate-400 hover:text-red-400" title="Delete">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -195,7 +209,7 @@ export function Sidebar() {
                           <FileText className="w-3.5 h-3.5 flex-shrink-0 text-slate-500" />
                           <span className="text-sm truncate" style={{ color: pageActive ? 'white' : 'rgba(205,214,244,0.7)' }}>{page.title || 'Untitled'}</span>
                         </Link>
-                        <button onClick={() => deletePage(project.id, page.id)}
+                        <button onClick={() => confirmDeletePage(project.id, page.id, page.title)}
                           className="w-5 h-5 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/20 text-slate-400 hover:text-red-400 flex-shrink-0">
                           <X className="w-3 h-3" />
                         </button>
@@ -228,6 +242,19 @@ export function Sidebar() {
 
   return (
     <>
+      {/* Confirm modal (portal-level) */}
+      <ConfirmModal
+        open={!!pendingDelete}
+        title={pendingDelete?.kind === 'project' ? 'Delete project?' : 'Delete page?'}
+        message={
+          pendingDelete?.kind === 'project'
+            ? `"${pendingDelete.name}" and all its pages will be permanently deleted. This cannot be undone.`
+            : `"${pendingDelete?.kind === 'page' ? pendingDelete.title : ''}" will be permanently deleted.`
+        }
+        onConfirm={pendingDelete?.kind === 'project' ? doDeleteProject : doDeletePage}
+        onCancel={() => setPendingDelete(null)}
+      />
+
       {/* Mobile toggle */}
       <button onClick={() => setMobileOpen(true)}
         className="md:hidden fixed top-4 left-4 z-50 w-9 h-9 flex items-center justify-center rounded-lg shadow-lg"

@@ -1,8 +1,9 @@
 @import "tailwindcss";
 
+/* ─── Design tokens ─────────────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #0f0f0f;
+  --background: #f8f9fc;
+  --foreground: #0f0f1a;
   --sidebar-bg: #1e1e2e;
   --sidebar-fg: #cdd6f4;
   --sidebar-hover: #313244;
@@ -12,6 +13,18 @@
   --primary: #6366f1;
   --primary-hover: #4f46e5;
   --editor-bg: #ffffff;
+  --card-bg: #ffffff;
+  --card-border: rgba(0,0,0,0.07);
+  --glass-bg: rgba(255,255,255,0.72);
+  --glass-border: rgba(255,255,255,0.9);
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06);
+  --radius: 12px;
+  --radius-sm: 8px;
 }
 
 .dark {
@@ -26,168 +39,301 @@
   --primary: #89b4fa;
   --primary-hover: #74c7ec;
   --editor-bg: #1e1e2e;
+  --card-bg: #24273a;
+  --card-border: rgba(255,255,255,0.06);
+  --glass-bg: rgba(30,30,46,0.82);
+  --glass-border: rgba(255,255,255,0.08);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.4);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,0.5);
 }
 
-* { box-sizing: border-box; }
+/* ─── Reset & base ──────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
   margin: 0;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* TipTap editor styles */
+/* ─── Scrollbars ─────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+/* ─── Animations ─────────────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); }
+  50%       { box-shadow: 0 0 0 6px rgba(99,102,241,0.15); }
+}
+
+.animate-fadeUp    { animation: fadeUp 0.4s ease both; }
+.animate-fadeIn    { animation: fadeIn 0.3s ease both; }
+.animate-scaleIn   { animation: scaleIn 0.25s ease both; }
+.animate-slideRight { animation: slideInRight 0.35s ease both; }
+
+/* ─── Sticky note colors ─────────────────────────────────────────── */
+.sticky-yellow  { --sticky-bg: #fef9c3; --sticky-border: #fde047; --sticky-text: #713f12; }
+.sticky-blue    { --sticky-bg: #dbeafe; --sticky-border: #93c5fd; --sticky-text: #1e3a8a; }
+.sticky-pink    { --sticky-bg: #fce7f3; --sticky-border: #f9a8d4; --sticky-text: #831843; }
+.sticky-green   { --sticky-bg: #d1fae5; --sticky-border: #6ee7b7; --sticky-text: #064e3b; }
+.sticky-purple  { --sticky-bg: #ede9fe; --sticky-border: #c4b5fd; --sticky-text: #3b0764; }
+.sticky-orange  { --sticky-bg: #ffedd5; --sticky-border: #fdba74; --sticky-text: #7c2d12; }
+
+.dark .sticky-yellow  { --sticky-bg: #3b2f00; --sticky-border: #ca8a04; --sticky-text: #fef08a; }
+.dark .sticky-blue    { --sticky-bg: #0f2642; --sticky-border: #3b82f6; --sticky-text: #93c5fd; }
+.dark .sticky-pink    { --sticky-bg: #3b0f2a; --sticky-border: #ec4899; --sticky-text: #fbcfe8; }
+.dark .sticky-green   { --sticky-bg: #02280f; --sticky-border: #10b981; --sticky-text: #6ee7b7; }
+.dark .sticky-purple  { --sticky-bg: #1e0b3b; --sticky-border: #8b5cf6; --sticky-text: #c4b5fd; }
+.dark .sticky-orange  { --sticky-bg: #2e1000; --sticky-border: #ea580c; --sticky-text: #fed7aa; }
+
+/* ─── Dashboard glass card ───────────────────────────────────────── */
+.glass-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ─── Confirm Modal ──────────────────────────────────────────────── */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.18s ease;
+}
+.modal-box {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: 1.5rem;
+  max-width: 400px;
+  width: calc(100% - 2rem);
+  animation: scaleIn 0.22s ease;
+}
+
+/* ─── TipTap / ProseMirror ───────────────────────────────────────── */
 .ProseMirror {
   outline: none;
   min-height: 60vh;
   padding: 0;
+  text-align: left;
 }
 
+/* Placeholder */
 .ProseMirror p.is-editor-empty:first-child::before {
   color: var(--muted);
   content: attr(data-placeholder);
   float: left;
   height: 0;
   pointer-events: none;
+  font-style: italic;
 }
 
-.ProseMirror h1 { font-size: 2rem; font-weight: 700; margin: 1.5rem 0 0.75rem; line-height: 1.2; }
-.ProseMirror h2 { font-size: 1.5rem; font-weight: 600; margin: 1.25rem 0 0.5rem; line-height: 1.3; }
-.ProseMirror h3 { font-size: 1.25rem; font-weight: 600; margin: 1rem 0 0.5rem; line-height: 1.4; }
+/* Headings — always left-aligned, great typography */
+.ProseMirror h1 {
+  font-size: 2.1rem;
+  font-weight: 800;
+  margin: 1.75rem 0 0.6rem;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  text-align: left;
+  color: var(--foreground);
+}
+.ProseMirror h2 {
+  font-size: 1.55rem;
+  font-weight: 700;
+  margin: 1.4rem 0 0.5rem;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  text-align: left;
+  color: var(--foreground);
+}
+.ProseMirror h3 {
+  font-size: 1.2rem;
+  font-weight: 650;
+  margin: 1.1rem 0 0.4rem;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  text-align: left;
+  color: var(--foreground);
+}
+.ProseMirror h4 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0.9rem 0 0.35rem;
+  text-align: left;
+}
 
-.ProseMirror p { margin: 0.5rem 0; line-height: 1.7; }
+.ProseMirror p { margin: 0.5rem 0; line-height: 1.75; }
 
-.ProseMirror ul, .ProseMirror ol { padding-left: 1.5rem; margin: 0.5rem 0; }
-.ProseMirror li { margin: 0.25rem 0; line-height: 1.6; }
+/* First heading at top — less top margin */
+.ProseMirror > h1:first-child,
+.ProseMirror > h2:first-child { margin-top: 0.25rem; }
+
+.ProseMirror ul, .ProseMirror ol { padding-left: 1.6rem; margin: 0.5rem 0; }
+.ProseMirror li { margin: 0.3rem 0; line-height: 1.7; }
 .ProseMirror ul li { list-style-type: disc; }
 .ProseMirror ol li { list-style-type: decimal; }
+.ProseMirror li p { margin: 0; }
 
+/* Inline code */
 .ProseMirror code {
-  background: #f1f5f9;
-  color: #dc2626;
-  border-radius: 3px;
-  padding: 0.15em 0.4em;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  background: #f1f0ff;
+  color: #6d28d9;
+  border-radius: 4px;
+  padding: 0.12em 0.42em;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 0.875em;
+  border: 1px solid rgba(109,40,217,0.12);
 }
-
 .dark .ProseMirror code {
-  background: #313244;
-  color: #f38ba8;
+  background: #2d1f5e;
+  color: #cba6f7;
+  border-color: rgba(203,166,247,0.15);
 }
 
+/* Code blocks */
 .ProseMirror pre {
   background: #0f172a;
   color: #e2e8f0;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 1rem 1.25rem;
   overflow-x: auto;
-  margin: 1rem 0;
+  margin: 1.1rem 0;
+  font-size: 0.875em;
+  line-height: 1.65;
+  border: 1px solid rgba(255,255,255,0.06);
 }
-
 .ProseMirror pre code {
   background: none;
   color: inherit;
   padding: 0;
-  font-size: 0.9em;
+  font-size: 1em;
+  border: none;
 }
 
+/* Blockquote */
 .ProseMirror blockquote {
-  border-left: 4px solid var(--primary);
-  padding-left: 1rem;
+  border-left: 3px solid var(--primary);
+  padding-left: 1.1rem;
   margin: 1rem 0;
   color: var(--muted);
   font-style: italic;
 }
 
+/* Horizontal rule */
 .ProseMirror hr {
   border: none;
-  border-top: 2px solid var(--border);
+  border-top: 1px solid var(--border);
   margin: 1.5rem 0;
 }
 
+/* Links */
+.ProseMirror a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: text-decoration-color 0.2s;
+}
+.ProseMirror a:hover { text-decoration-color: var(--primary); }
+
+/* Images */
 .ProseMirror img {
   max-width: 100%;
-  height: auto;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   margin: 0.5rem 0;
-  cursor: default;
+  box-shadow: var(--shadow-sm);
 }
 .ProseMirror img.ProseMirror-selectednode {
-  outline: 3px solid var(--primary);
-  border-radius: 6px;
+  outline: 2px solid var(--primary);
 }
 
-/* Table styles */
+/* Tables */
 .ProseMirror table {
   border-collapse: collapse;
   width: 100%;
   margin: 1rem 0;
-  overflow: hidden;
-  border-radius: 6px;
+  font-size: 0.9em;
 }
 .ProseMirror th, .ProseMirror td {
   border: 1px solid var(--border);
-  padding: 0.5rem 0.75rem;
+  padding: 0.55rem 0.8rem;
   text-align: left;
-  min-width: 80px;
-  vertical-align: top;
 }
 .ProseMirror th {
-  background: #f8fafc;
+  background: var(--sidebar-hover);
   font-weight: 600;
+  color: var(--sidebar-fg);
 }
-.dark .ProseMirror th { background: #313244; }
-.ProseMirror .selectedCell:after {
-  background: rgba(99,102,241,0.1);
-  content: "";
-  left: 0; right: 0; top: 0; bottom: 0;
-  pointer-events: none;
-  position: absolute;
-  z-index: 2;
-}
-.ProseMirror .column-resize-handle {
-  background-color: var(--primary);
-  bottom: -2px;
-  position: absolute;
-  right: -2px;
-  pointer-events: none;
-  top: 0;
-  width: 4px;
-}
-.ProseMirror .tableWrapper { overflow-x: auto; }
+.dark .ProseMirror th { background: rgba(255,255,255,0.06); }
+.ProseMirror tr:hover td { background: rgba(99,102,241,0.04); }
 
-/* Link styles */
-.ProseMirror a {
-  color: var(--primary);
-  text-decoration: underline;
-  cursor: pointer;
-}
+/* Highlight.js token colors */
+.hljs-keyword  { color: #c678dd; }
+.hljs-string   { color: #98c379; }
+.hljs-comment  { color: #5c6370; font-style: italic; }
+.hljs-number   { color: #d19a66; }
+.hljs-function { color: #61afef; }
+.hljs-title    { color: #61afef; }
+.hljs-type     { color: #e5c07b; }
+.hljs-built_in { color: #e06c75; }
+.hljs-literal  { color: #56b6c2; }
+.hljs-variable { color: #e06c75; }
+.hljs-attr     { color: #e5c07b; }
+.hljs-name     { color: #e06c75; }
 
-/* Callout block */
-.callout {
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  border-radius: 8px;
-  padding: 0.75rem 1rem;
+/* Drawing canvas node */
+.drawing-node {
+  position: relative;
+  display: block;
   margin: 1rem 0;
-  display: flex;
-  gap: 0.75rem;
-  align-items: flex-start;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
 }
-.dark .callout {
-  background: #1e3a5f;
-  border-color: #3b82f6;
+.drawing-node canvas {
+  display: block;
+  cursor: crosshair;
+  touch-action: none;
 }
 
-/* Syntax highlighting */
-.hljs-comment, .hljs-quote { color: #6a737d; font-style: italic; }
-.hljs-keyword, .hljs-selector-tag, .hljs-built_in { color: #d73a49; }
-.hljs-string, .hljs-attr { color: #032f62; }
-.dark .hljs-string, .dark .hljs-attr { color: #9ecbff; }
-.dark .hljs-keyword { color: #f97583; }
-.hljs-number, .hljs-literal { color: #005cc5; }
-.dark .hljs-number { color: #79b8ff; }
-.hljs-function .hljs-title, .hljs-title.function_ { color: #6f42c1; }
-.dark .hljs-function .hljs-title { color: #b392f0; }
+/* ─── Sticky note hover actions ─────────────────────────────────── */
+.note-card:hover .note-actions { opacity: 1 !important; }
+.note-actions { transition: opacity 0.15s; }

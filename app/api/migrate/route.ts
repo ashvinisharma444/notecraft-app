@@ -37,7 +37,29 @@ export async function GET() {
         mime_type VARCHAR(100),
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
+      CREATE TABLE IF NOT EXISTS sticky_notes (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        content TEXT NOT NULL DEFAULT '',
+        color VARCHAR(20) NOT NULL DEFAULT 'yellow',
+        position INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
     `);
+
+    /* Safe ALTER for share_token (idempotent) */
+    await pool.query(`
+      ALTER TABLE pages ADD COLUMN IF NOT EXISTS share_token VARCHAR(64) UNIQUE;
+    `);
+
+    /* Indexes */
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_pages_share_token ON pages(share_token);
+      CREATE INDEX IF NOT EXISTS idx_sticky_notes_user ON sticky_notes(user_id, position);
+      CREATE INDEX IF NOT EXISTS idx_pages_updated ON pages(user_id, updated_at DESC);
+    `);
+
     return NextResponse.json({ success: true, message: 'Schema migrated successfully' });
   } catch (error) {
     console.error('Migration error:', error);
