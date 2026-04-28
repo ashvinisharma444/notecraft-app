@@ -2,37 +2,45 @@ import { queryOne } from '@/lib/db';
 import { notFound } from 'next/navigation';
 import { BookOpen, Clock } from 'lucide-react';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 
 export const dynamic = 'force-dynamic';
 
 interface Props { params: Promise<{ token: string }> }
 
-function renderNode(node: Record<string, unknown>, key: number): React.ReactNode {
-  const type = node.type as string;
-  const content = node.content as Record<string, unknown>[] | undefined;
-  const attrs = node.attrs as Record<string, unknown> | undefined;
-  const text = node.text as string | undefined;
+type TipTapMark = { type: string; attrs?: Record<string, string | undefined> };
+type TipTapNode = {
+  type: string;
+  text?: string;
+  content?: TipTapNode[];
+  attrs?: Record<string, string | number | boolean | null | undefined>;
+  marks?: TipTapMark[];
+};
+
+function renderNode(node: TipTapNode, key: number): ReactNode {
+  const { type, content, attrs, text, marks } = node;
 
   if (type === 'text') {
-    const marks = node.marks as Array<{ type: string; attrs?: Record<string, unknown> }> | undefined;
-    let el: React.ReactNode = text;
+    let el: ReactNode = text ?? '';
     if (marks) {
       for (const m of marks) {
-        if (m.type === 'bold')      el = <strong key={key}>{el}</strong>;
+        if (m.type === 'bold')           el = <strong key={key}>{el}</strong>;
         else if (m.type === 'italic')    el = <em key={key}>{el}</em>;
         else if (m.type === 'underline') el = <u key={key}>{el}</u>;
         else if (m.type === 'strike')    el = <s key={key}>{el}</s>;
         else if (m.type === 'code')      el = <code key={key}>{el}</code>;
-        else if (m.type === 'link')      el = <a key={key} href={m.attrs?.href as string} target="_blank" rel="noopener noreferrer">{el}</a>;
+        else if (m.type === 'link')      el = <a key={key} href={m.attrs?.href ?? '#'} target="_blank" rel="noopener noreferrer">{el}</a>;
       }
     }
     return el;
   }
+
   const kids = content?.map((c, i) => renderNode(c, i));
+
   switch (type) {
     case 'doc':        return <div key={key}>{kids}</div>;
     case 'paragraph':  return <p key={key}>{kids}</p>;
-    case 'heading':    return type === 'heading' && attrs?.level === 1 ? <h1 key={key}>{kids}</h1>
+    case 'heading':    return attrs?.level === 1 ? <h1 key={key}>{kids}</h1>
                             : attrs?.level === 2 ? <h2 key={key}>{kids}</h2>
                             : <h3 key={key}>{kids}</h3>;
     case 'bulletList': return <ul key={key}>{kids}</ul>;
@@ -41,7 +49,7 @@ function renderNode(node: Record<string, unknown>, key: number): React.ReactNode
     case 'blockquote': return <blockquote key={key}>{kids}</blockquote>;
     case 'horizontalRule': return <hr key={key} />;
     case 'codeBlock':  return <pre key={key}><code>{kids}</code></pre>;
-    case 'image':      return <img key={key} src={attrs?.src as string} alt={attrs?.alt as string || ''} />;
+    case 'image':      return <img key={key} src={String(attrs?.src ?? '')} alt={String(attrs?.alt ?? '')} />;
     case 'hardBreak':  return <br key={key} />;
     case 'table':      return <table key={key}><tbody>{kids}</tbody></table>;
     case 'tableRow':   return <tr key={key}>{kids}</tr>;
@@ -51,10 +59,20 @@ function renderNode(node: Record<string, unknown>, key: number): React.ReactNode
   }
 }
 
+interface PageRow {
+  id: number;
+  title: string;
+  content: TipTapNode;
+  updated_at: string;
+  author_name: string;
+  project_name: string;
+  project_emoji: string;
+}
+
 export default async function SharePage({ params }: Props) {
   const { token } = await params;
 
-  const page = await queryOne(
+  const raw = await queryOne(
     `SELECT p.id, p.title, p.content, p.updated_at,
             u.name AS author_name,
             pr.name AS project_name, pr.emoji AS project_emoji
@@ -65,11 +83,12 @@ export default async function SharePage({ params }: Props) {
     [token]
   );
 
-  if (!page) notFound();
+  if (!raw) notFound();
 
-  const content = page.content as Record<string, unknown>;
-  const updatedAt = new Date(page.updated_at as string).toLocaleDateString('en-US', {
-    year: 'numeric', month: 'long', day: 'numeric'
+  const page = raw as unknown as PageRow;
+
+  const updatedAt = new Date(page.updated_at).toLocaleDateString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric',
   });
 
   return (
@@ -79,7 +98,7 @@ export default async function SharePage({ params }: Props) {
         borderBottom: '1px solid var(--border)',
         background: 'var(--card-bg)',
         padding: '0.75rem 1.5rem',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none', color: 'var(--foreground)' }}>
           <BookOpen style={{ width: 20, height: 20, color: '#6366f1' }} />
@@ -105,7 +124,7 @@ export default async function SharePage({ params }: Props) {
         </h1>
 
         <div className="ProseMirror" style={{ pointerEvents: 'none' }}>
-          {content && Object.keys(content).length > 0 && renderNode(content, 0)}
+          {page.content && Object.keys(page.content).length > 0 && renderNode(page.content, 0)}
         </div>
       </main>
     </div>
